@@ -3,13 +3,20 @@ package com.a7clk.wall_e_android.ui;
 /**
  * Created by Gotze on 12/4/2016.
  */
+import android.animation.ObjectAnimator;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.util.AttributeSet;
+import android.util.Log;
+import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
+
+import com.a7clk.wall_e_android.R;
 
 public class JoystickView extends View implements Runnable {
     // Constants
@@ -23,6 +30,11 @@ public class JoystickView extends View implements Runnable {
     public final static int BOTTOM_LEFT = 8;
     public final static int LEFT = 1;
     public final static int LEFT_FRONT = 2;
+
+    private static final int PRESSED_COLOR_LIGHTUP = 255 / 25;
+    private static final int PRESSED_RING_ALPHA = 75;
+    private static final int DEFAULT_PRESSED_RING_WIDTH_DIP = 6;
+    private static final int ANIMATION_TIME_ID = android.R.integer.config_shortAnimTime;
     // Variables
     private OnJoystickMoveListener onJoystickMoveListener; // Listener
     private Thread thread = new Thread(this);
@@ -33,7 +45,22 @@ public class JoystickView extends View implements Runnable {
     private double centerY = 0; // Center view y position
     private Paint mainCircle;
     private Paint secondaryCircle;
+    private Paint arrow;
+    private Path up;
+    private Path down;
+    private Path left;
+    private Path right;
+
     private Paint button;
+    private Paint focusPaint;
+    private float animationProgress;
+    private int pressedRingWidth;
+    private int defaultColor = Color.BLACK;
+    private int pressedColor;
+    private ObjectAnimator pressedAnimator;
+    private int pressedRingRadius;
+
+
     private Paint horizontalLine;
     private Paint verticalLine;
     private int joystickRadius;
@@ -41,23 +68,33 @@ public class JoystickView extends View implements Runnable {
     private int lastAngle = 0;
     private int lastPower = 0;
 
+    private AttributeSet attrs;
+    private Context context;
+
     public JoystickView(Context context) {
         super(context);
     }
 
     public JoystickView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        attrs = this.attrs;
+        context= this.context;
         initJoystickView();
     }
 
     public JoystickView(Context context, AttributeSet attrs, int defaultStyle) {
         super(context, attrs, defaultStyle);
+        attrs = this.attrs;
+        context= this.context;
         initJoystickView();
     }
 
     protected void initJoystickView() {
+        this.setFocusable(true);
+        setClickable(true);
         mainCircle = new Paint(Paint.ANTI_ALIAS_FLAG);
-        mainCircle.setColor(Color.WHITE);
+        mainCircle.setColor(Color.BLACK);
+        mainCircle.setAlpha(8);
         mainCircle.setStyle(Paint.Style.FILL_AND_STROKE);
 
         secondaryCircle = new Paint();
@@ -72,9 +109,82 @@ public class JoystickView extends View implements Runnable {
         horizontalLine.setStrokeWidth(2);
         horizontalLine.setColor(Color.BLACK);
 
+        arrow= new Paint();
+        arrow.setStrokeWidth(2);
+        arrow.setColor(Color.GRAY);
+        arrow.setAlpha(20);
+
+//        int width= getWidth();
+//        int height= getHeight();
+//        int xCenter = (int) (width / 2 * 0.75);
+//        int yCenter = (int) (height / 2 * 0.75);
+//        int arrowWidth = 15;
+//        int arrowHeight = 50;
+//
+//        up = new Path();
+//        up.moveTo(xCenter, 0);
+//        up.lineTo(xCenter+arrowWidth, arrowHeight);
+//        up.lineTo(xCenter-arrowWidth, arrowHeight);
+//        up.close();
+//
+//        down = new Path();
+//        down.moveTo(xCenter, height);
+//        down.lineTo(xCenter+arrowWidth, height - arrowHeight);
+//        down.lineTo(xCenter-arrowWidth, height - arrowHeight);
+//        down.close();
+//
+//        right=new Path();
+//        right.moveTo(width, yCenter);
+//        right.lineTo(width-arrowHeight, yCenter+arrowWidth);
+//        right.lineTo(width-arrowHeight, yCenter-arrowWidth);
+//        right.close();
+//
+//        left = new Path();
+//        left.moveTo(0, yCenter);
+//        left.lineTo(arrowHeight, yCenter+arrowWidth);
+//        left.lineTo(arrowHeight, yCenter-arrowWidth);
+//        left.close();
+
         button = new Paint(Paint.ANTI_ALIAS_FLAG);
-        button.setColor(Color.RED);
+        button.setAlpha(40);
         button.setStyle(Paint.Style.FILL);
+
+        focusPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        focusPaint.setStyle(Paint.Style.STROKE);
+
+        pressedRingWidth = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, DEFAULT_PRESSED_RING_WIDTH_DIP, getResources()
+                .getDisplayMetrics());
+
+        int color = Color.LTGRAY;
+        if (attrs != null) {
+            final TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.CircleButton);
+            color = a.getColor(R.styleable.CircleButton_cb_color, color);
+            pressedRingWidth = (int) a.getDimension(R.styleable.CircleButton_cb_pressedRingWidth, pressedRingWidth);
+            a.recycle();
+        }
+
+        setColor(color);
+
+        focusPaint.setStrokeWidth(pressedRingWidth);
+        final int pressedAnimationTime = getResources().getInteger(ANIMATION_TIME_ID);
+        pressedAnimator = ObjectAnimator.ofFloat(this, "animationProgress", 0f, 0f);
+        pressedAnimator.setDuration(pressedAnimationTime);
+    }
+
+    public void setColor(int color) {
+        this.defaultColor = color;
+        this.pressedColor = getHighlightColor(color, PRESSED_COLOR_LIGHTUP);
+
+        button.setColor(defaultColor);
+        focusPaint.setColor(defaultColor);
+        focusPaint.setAlpha(PRESSED_RING_ALPHA);
+
+        this.invalidate();
+    }
+
+    private int getHighlightColor(int color, int amount) {
+        return Color.argb(Math.min(255, Color.alpha(color)), Math.min(255, Color.red(color) + amount),
+                Math.min(255, Color.green(color) + amount), Math.min(255, Color.blue(color) + amount));
     }
 
     @Override
@@ -86,11 +196,12 @@ public class JoystickView extends View implements Runnable {
         super.onSizeChanged(xNew, yNew, xOld, yOld);
         // before measure, get the center of view
         xPosition = (int) getWidth() / 2;
-        yPosition = (int) getWidth() / 2;
+        yPosition = (int) getHeight() / 2;
         int d = Math.min(xNew, yNew);
         buttonRadius = (int) (d / 2 * 0.25);
         joystickRadius = (int) (d / 2 * 0.75);
 
+        pressedRingRadius = buttonRadius - pressedRingWidth - pressedRingWidth / 2;
     }
 
     @Override
@@ -127,29 +238,101 @@ public class JoystickView extends View implements Runnable {
         centerX = (getWidth()) / 2;
         centerY = (getHeight()) / 2;
 
+        int xCenter = (int) (centerX);
+        int yCenter = (int) (centerY);
+        int arrowWidth = 40;
+        int arrowHeight = 50;
+
+        up = new Path();
+        up.moveTo(xCenter, yCenter-joystickRadius);
+        up.lineTo(xCenter+arrowWidth, yCenter-joystickRadius + arrowHeight);
+        up.lineTo(xCenter-arrowWidth, yCenter-joystickRadius + arrowHeight);
+        up.close();
+
+        down = new Path();
+        down.moveTo(xCenter, yCenter+joystickRadius);
+        down.lineTo(xCenter+arrowWidth, yCenter+joystickRadius - arrowHeight);
+        down.lineTo(xCenter-arrowWidth, yCenter+joystickRadius - arrowHeight);
+        down.close();
+//
+        right=new Path();
+        right.moveTo(xCenter+joystickRadius, yCenter);
+        right.lineTo(xCenter+joystickRadius-arrowHeight, yCenter+arrowWidth);
+        right.lineTo(xCenter+joystickRadius-arrowHeight, yCenter-arrowWidth);
+        right.close();
+//
+        left = new Path();
+        left.moveTo(xCenter-joystickRadius, yCenter);
+        left.lineTo(xCenter-joystickRadius+arrowHeight, yCenter+arrowWidth);
+        left.lineTo(xCenter-joystickRadius+arrowHeight, yCenter-arrowWidth);
+        left.close();
+
         // painting the main circle
         canvas.drawCircle((int) centerX, (int) centerY, joystickRadius,
                 mainCircle);
         // painting the secondary circle
-        canvas.drawCircle((int) centerX, (int) centerY, joystickRadius / 2,
-                secondaryCircle);
+//        canvas.drawCircle((int) centerX, (int) centerY, joystickRadius / 2,
+//                secondaryCircle);
         // paint lines
-        canvas.drawLine((float) centerX, (float) centerY, (float) centerX,
-                (float) (centerY - joystickRadius), verticalLine);
-        canvas.drawLine((float) (centerX - joystickRadius), (float) centerY,
-                (float) (centerX + joystickRadius), (float) centerY,
-                horizontalLine);
-        canvas.drawLine((float) centerX, (float) (centerY + joystickRadius),
-                (float) centerX, (float) centerY, horizontalLine);
+//        canvas.drawLine((float) centerX, (float) centerY, (float) centerX,
+//                (float) (centerY - joystickRadius), verticalLine);
+//        canvas.drawLine((float) (centerX - joystickRadius), (float) centerY,
+//                (float) (centerX + joystickRadius), (float) centerY,
+//                horizontalLine);
+//        canvas.drawLine((float) centerX, (float) (centerY + joystickRadius),
+//                (float) centerX, (float) centerY, horizontalLine);
 
+        canvas.drawPath(up, arrow);
+        canvas.drawPath(down, arrow);
+        canvas.drawPath(right, arrow);
+        canvas.drawPath(left, arrow);
         // painting the move button
-        canvas.drawCircle(xPosition, yPosition, buttonRadius, button);
+        canvas.drawCircle(xPosition, yPosition, buttonRadius - pressedRingWidth, button);
+        canvas.drawCircle(xPosition, yPosition, pressedRingRadius + animationProgress, focusPaint);
+
+    }
+
+    public float getAnimationProgress() {
+        return animationProgress;
+    }
+
+    public void setAnimationProgress(float animationProgress) {
+        this.animationProgress = animationProgress;
+        this.invalidate();
+    }
+
+    @Override
+    public void setPressed(boolean pressed) {
+        super.setPressed(pressed);
+
+        Log.i("JoystickView","Pressed");
+        if (button != null) {
+            button.setColor(pressed ? pressedColor : defaultColor);
+        }
+
+        if (pressed) {
+            showPressedRing();
+            Log.i("JoystickView","showPressedRing");
+        } else {
+            hidePressedRing();
+        }
+    }
+
+    private void hidePressedRing() {
+        pressedAnimator.setFloatValues(pressedRingWidth, 0f);
+        pressedAnimator.start();
+    }
+
+    private void showPressedRing() {
+        pressedAnimator.setFloatValues(animationProgress, pressedRingWidth);
+        pressedAnimator.start();
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         xPosition = (int) event.getX();
         yPosition = (int) event.getY();
+
         double abs = Math.sqrt((xPosition - centerX) * (xPosition - centerX)
                 + (yPosition - centerY) * (yPosition - centerY));
         if (abs > joystickRadius) {
@@ -164,6 +347,10 @@ public class JoystickView extends View implements Runnable {
             if (onJoystickMoveListener != null)
                 onJoystickMoveListener.onValueChanged(getAngle(), getPower(),
                         getDirection());
+            if (button != null) {
+                button.setColor(defaultColor);
+            }
+            hidePressedRing();
         }
         if (onJoystickMoveListener != null
                 && event.getAction() == MotionEvent.ACTION_DOWN) {
@@ -175,6 +362,10 @@ public class JoystickView extends View implements Runnable {
             if (onJoystickMoveListener != null)
                 onJoystickMoveListener.onValueChanged(getAngle(), getPower(),
                         getDirection());
+            if (button != null) {
+                button.setColor(pressedColor);
+            }
+            showPressedRing();
         }
         return true;
     }
