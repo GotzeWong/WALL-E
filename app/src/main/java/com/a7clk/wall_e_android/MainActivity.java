@@ -1,5 +1,7 @@
 package com.a7clk.wall_e_android;
 
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -14,10 +16,12 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Button;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.a7clk.wall_e_android.model.Config;
 import com.a7clk.wall_e_android.model.Order;
+import com.a7clk.wall_e_android.ui.JoystickView;
 
 import org.json.JSONObject;
 
@@ -39,7 +43,7 @@ public class MainActivity extends AppCompatActivity
 
     private Thread thread;                //執行緒
     private Socket clientSocket;        //客戶端的socket
-    private BufferedWriter bw;            //取得網路輸出串流
+
     private BufferedReader br;            //取得網路輸入串流
     private String tmp;                    //做為接收時的緩存
     private JSONObject json_write,json_read;
@@ -64,14 +68,22 @@ public class MainActivity extends AppCompatActivity
     @Bind(R.id.recvTextView)
     TextView recvTextView;
 
+    @Bind(R.id.speedSeekBar)
+    SeekBar speedSeekBar;
+
+    @Bind(R.id.volumSeekBar)
+    SeekBar volumSeekBar;
+
+    @Bind(R.id.joystickView)
+    JoystickView joystickView;
+
     @OnClick(R.id.initBtn) void init() {
         // TODO call server...
         thread=new Thread(Connection);                //賦予執行緒工作
         thread.start();
-
     }
 
-    @OnClick(R.id.initBtn) void stop() {
+    @OnClick(R.id.stopBtn) void stop() {
         // TODO call server...
         doOrder(Order.STOP);
     }
@@ -80,7 +92,6 @@ public class MainActivity extends AppCompatActivity
         // TODO call server...
         doOrder(Order.FORWARD);
     }
-
 
     @OnClick(R.id.backwardBtn) void back() {
         // TODO call server...
@@ -107,6 +118,16 @@ public class MainActivity extends AppCompatActivity
         doOrder(Order.SUB_SPEED);
     }
 
+    public void setSpeed(long speed) {
+        // TODO call server...
+        doOrder(Order.SPEED+speed);
+    }
+
+    public void setVolum(long volum) {
+        // TODO call server...
+        doOrder(Order.VOLUM+volum);
+    }
+
     @OnClick(R.id.wiFiBtn) void wifi() {
         // TODO call server...
 
@@ -120,6 +141,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     public void doOrder(String order){
+        Log.i("the order to car:",order);
         if(null != out && clientSocket.isConnected()) {
             out.print(order);
             out.flush();
@@ -132,6 +154,9 @@ public class MainActivity extends AppCompatActivity
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
 
+        if(this.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT){
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        }
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
@@ -153,6 +178,78 @@ public class MainActivity extends AppCompatActivity
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
+        speedSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            private long _progress = 0;
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                _progress = progress;//1~100
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                setSpeed(_progress);
+            }
+        });
+
+        volumSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            private long _progress = 0;
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                _progress = progress;//1~100
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                setVolum(_progress);
+            }
+        });
+
+        joystickView.setOnJoystickMoveListener(new JoystickView.OnJoystickMoveListener() {
+
+            @Override
+            public void onValueChanged(int angle, int power, int direction) {
+                // TODO Auto-generated method stub
+                //angleTextView.setText(" " + String.valueOf(angle) + "°");
+                //powerTextView.setText(" " + String.valueOf(power) + "%");A
+                Log.i("the ANGLE:",angle+"");
+
+                //doOrder(Order.ANGLE+angle);
+                switch (direction) {
+                    case JoystickView.FRONT:
+                        doOrder(Order.FORWARD);
+                        break;
+                    case JoystickView.FRONT_RIGHT:
+                        break;
+                    case JoystickView.RIGHT:
+                        doOrder(Order.RIGHT);
+                        break;
+                    case JoystickView.RIGHT_BOTTOM:
+                        break;
+                    case JoystickView.BOTTOM:
+                        doOrder(Order.BACKWARD);
+                        break;
+                    case JoystickView.BOTTOM_LEFT:
+                        break;
+                    case JoystickView.LEFT:
+                        doOrder(Order.LEFT);
+                        break;
+                    case JoystickView.LEFT_FRONT:
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }, JoystickView.DEFAULT_LOOP_INTERVAL);
     }
 
     @Override
@@ -250,9 +347,7 @@ public class MainActivity extends AppCompatActivity
         }
     };
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
+    private void closeSocket() {
         try {
 
 //            bw.flush();
@@ -260,6 +355,11 @@ public class MainActivity extends AppCompatActivity
             //最近在小作品有發現close()這3個時,導致while (clientSocket.isConnected())這個迴圈內的區域錯誤
             //會跳出java.net.SocketException:Socket is closed錯誤,讓catch內的處理再重複執行,如有同樣問題的可以將下面這3行註解掉
 //            bw.close();
+
+            if(null != out) {
+                out.flush();
+                out.close();
+            }
             if(null != br)
                 br.close();
             if(null != clientSocket)
@@ -269,4 +369,12 @@ public class MainActivity extends AppCompatActivity
             e.printStackTrace();
         }
     }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        closeSocket();
+    }
+
 }

@@ -11,12 +11,16 @@ public class Order {
     public static final String BACKWARD = "B";
     public static final String LEFT = "L";
     public static final String RIGHT = "R";
+    public static final String SPEED = "SP";//0-9
     public static final String SUB_SPEED = "-";
     public static final String ADD_SPEED = "+";
     public static final String STOP = "S";
+    public static final String ANGLE = "";
     public static final String QUIT_TRANS = "QUIT";
     public static final String GET_WIFI_INFO = "WIFI";
     public static final String GET_BLUETOOTH = "BLUE";
     public static final String UNDO_GET_BLUETOOTH = "_BLUE";
+
+    public static final String VOLUM ="V";
 
 }
