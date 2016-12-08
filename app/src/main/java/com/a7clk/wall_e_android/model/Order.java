@@ -11,6 +11,10 @@ public class Order {
     public static final String BACKWARD = "B";
     public static final String LEFT = "L";
     public static final String RIGHT = "R";
+    public static final String FORWARD_SHORT_TIME = "FS";
+    public static final String BACKWARD_SHORT_TIME = "BS";
+    public static final String LEFT_SHORT_TIME = "LS";
+    public static final String RIGHT_SHORT_TIME = "RS";
     public static final String SPEED = "SP";//0-9
     public static final String SUB_SPEED = "-";
     public static final String ADD_SPEED = "+";

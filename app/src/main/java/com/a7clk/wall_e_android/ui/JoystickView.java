@@ -23,13 +23,13 @@ public class JoystickView extends View implements Runnable {
     private final double RAD = 57.2957795;
     public final static long DEFAULT_LOOP_INTERVAL = 100; // 100 ms
     public final static int FRONT = 3;
-    public final static int FRONT_RIGHT = 4;
-    public final static int RIGHT = 5;
-    public final static int RIGHT_BOTTOM = 6;
+    public final static int FRONT_RIGHT = 2;
+    public final static int RIGHT = 1;
+    public final static int RIGHT_BOTTOM = 8;
     public final static int BOTTOM = 7;
-    public final static int BOTTOM_LEFT = 8;
-    public final static int LEFT = 1;
-    public final static int LEFT_FRONT = 2;
+    public final static int BOTTOM_LEFT = 6;
+    public final static int LEFT = 5;
+    public final static int LEFT_FRONT = 4;
 
     private static final int PRESSED_COLOR_LIGHTUP = 255 / 25;
     private static final int PRESSED_RING_ALPHA = 75;

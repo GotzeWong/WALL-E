@@ -2,10 +2,15 @@ package com.a7clk.wall_e_android;
 
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -18,12 +23,14 @@ import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.a7clk.wall_e_android.model.Config;
 import com.a7clk.wall_e_android.model.Order;
 import com.a7clk.wall_e_android.ui.JoystickView;
 
 import org.json.JSONObject;
+import org.w3c.dom.Text;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -77,6 +84,16 @@ public class MainActivity extends AppCompatActivity
     @Bind(R.id.joystickView)
     JoystickView joystickView;
 
+    @Bind(R.id.oderTextView)
+    TextView oderTextView;
+
+    private SensorManager mSensorManager;
+    private Sensor mStepSensor;
+
+    private static boolean onPressed = false;
+    private static String currentOrder = Order.STOP;
+    private static String lastOrder = Order.STOP;
+
     @OnClick(R.id.initBtn) void init() {
         // TODO call server...
         thread=new Thread(Connection);                //賦予執行緒工作
@@ -90,22 +107,22 @@ public class MainActivity extends AppCompatActivity
 
     @OnClick(R.id.forwardBtn) void forward() {
         // TODO call server...
-        doOrder(Order.FORWARD);
+        doOrder(Order.FORWARD_SHORT_TIME);
     }
 
     @OnClick(R.id.backwardBtn) void back() {
         // TODO call server...
-        doOrder(Order.BACKWARD);
+        doOrder(Order.BACKWARD_SHORT_TIME);
     }
 
     @OnClick(R.id.leftBtn) void left() {
         // TODO call server...
-        doOrder(Order.LEFT);
+        doOrder(Order.LEFT_SHORT_TIME);
     }
 
     @OnClick(R.id.rightBtn) void right() {
         // TODO call server...
-        doOrder(Order.RIGHT);
+        doOrder(Order.RIGHT_SHORT_TIME);
     }
 
     @OnClick(R.id.fastBtn) void fast() {
@@ -146,6 +163,17 @@ public class MainActivity extends AppCompatActivity
             out.print(order);
             out.flush();
         }
+        oderTextView.setText(order);
+    }
+
+    public void doOrder(){
+        Log.i("the order to car:",currentOrder);
+        if(null != out && clientSocket.isConnected() && !lastOrder.equals(currentOrder)) {
+            out.print(currentOrder);
+            out.flush();
+            lastOrder = currentOrder;
+            oderTextView.setText(currentOrder+"...");
+        }
     }
 
     @Override
@@ -177,6 +205,9 @@ public class MainActivity extends AppCompatActivity
 
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
+
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        mStepSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
 
         speedSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             private long _progress = 0;
@@ -214,6 +245,25 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
+        joystickView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if(event.getAction() == MotionEvent.ACTION_DOWN) {
+                    //当手指按下的时候
+                    onPressed = true;
+                    doOrder();
+                }
+                if(event.getAction() == MotionEvent.ACTION_UP) {
+                    //当手指离开的时候
+                    onPressed = false;
+                    currentOrder = Order.STOP;
+                    doOrder();
+                }
+                return false;
+            }
+        });
+
+
         joystickView.setOnJoystickMoveListener(new JoystickView.OnJoystickMoveListener() {
 
             @Override
@@ -226,28 +276,42 @@ public class MainActivity extends AppCompatActivity
                 //doOrder(Order.ANGLE+angle);
                 switch (direction) {
                     case JoystickView.FRONT:
-                        doOrder(Order.FORWARD);
+                        if(onPressed)
+                            currentOrder = Order.FORWARD;
+                        else
+                            doOrder(Order.FORWARD_SHORT_TIME);
                         break;
                     case JoystickView.FRONT_RIGHT:
                         break;
                     case JoystickView.RIGHT:
-                        doOrder(Order.RIGHT);
+                        if(onPressed)
+                            currentOrder = Order.RIGHT;
+                        else
+                            doOrder(Order.RIGHT_SHORT_TIME);
                         break;
                     case JoystickView.RIGHT_BOTTOM:
                         break;
                     case JoystickView.BOTTOM:
-                        doOrder(Order.BACKWARD);
+                        if(onPressed)
+                            currentOrder = Order.BACKWARD;
+                        else
+                            doOrder(Order.BACKWARD_SHORT_TIME);
                         break;
                     case JoystickView.BOTTOM_LEFT:
                         break;
                     case JoystickView.LEFT:
-                        doOrder(Order.LEFT);
+                        if(onPressed)
+                            currentOrder = Order.LEFT;
+                        else
+                            doOrder(Order.LEFT_SHORT_TIME);
                         break;
                     case JoystickView.LEFT_FRONT:
                         break;
                     default:
                         break;
                 }
+                doOrder();
+
             }
         }, JoystickView.DEFAULT_LOOP_INTERVAL);
     }
@@ -368,6 +432,34 @@ public class MainActivity extends AppCompatActivity
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
+    }
+
+    private SensorEventListener mSensorEventListener = new SensorEventListener() {
+        private int mStep;
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+        }
+
+        @Override
+        public void onSensorChanged(SensorEvent event) {
+            if (event.values[0] == 1.0f) {
+                doOrder(Order.FORWARD);
+            }else
+                doOrder(Order.STOP);
+        }
+    };
+
+    protected void onResume() {
+        super.onResume();
+        mSensorManager.registerListener(mSensorEventListener, mStepSensor,
+                SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+    protected void onPause() {
+        super.onPause();
+        mSensorManager.unregisterListener(mSensorEventListener);
     }
 
     @Override
