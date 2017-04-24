@@ -3,6 +3,8 @@
     package="com.a7clk.wall_e_android">
 
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-feature android:name="android.hardware.sensor.stepcounter" android:required="true"/>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

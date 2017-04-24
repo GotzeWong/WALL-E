@@ -14,18 +14,29 @@
     tools:showIn="@layout/app_bar_main">
 
 
+    <com.a7clk.wall_e_android.ui.JoystickView
+        android:id="@+id/joystickView"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        app:cb_color="#EDEDED"
+        app:cb_pressedRingWidth="20dip"
+        />
+
     <Button
         android:id="@+id/initBtn"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="20dp"
-        android:text="Init"/>
+        android:text="Init"
+        android:layout_toRightOf="@id/joystickView"
+        />
 
     <Button
         android:id="@+id/stopBtn"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="20dp"
+        android:layout_toRightOf="@id/joystickView"
         android:layout_below="@id/initBtn"
         android:text="Stop"/>
 
@@ -34,8 +45,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="20dp"
-        android:layout_below="@id/stopBtn"
-        android:text="Forward"/>
+        android:layout_below="@id/joystickView"
+        android:text="Forward"
+        android:visibility="gone"
+        />
 
     <Button
         android:id="@+id/backwardBtn"
@@ -43,7 +56,8 @@
         android:layout_height="wrap_content"
         android:textSize="20dp"
         android:layout_below="@id/forwardBtn"
-        android:text="Backward"/>
+        android:text="Backward"
+        android:visibility="gone"/>
 
     <Button
         android:id="@+id/leftBtn"
@@ -51,7 +65,8 @@
         android:layout_height="wrap_content"
         android:textSize="20dp"
         android:layout_below="@id/backwardBtn"
-        android:text="Left"/>
+        android:text="Left"
+        android:visibility="gone"/>
 
     <Button
         android:id="@+id/rightBtn"
@@ -59,13 +74,55 @@
         android:layout_height="wrap_content"
         android:textSize="20dp"
         android:layout_below="@id/leftBtn"
-        android:text="Right"/>
+        android:text="Right"
+        android:visibility="gone"/>
+
+
+    <TextView
+        android:id="@+id/speedTextView"
+        android:layout_width="60dp"
+        android:layout_height="32dp"
+        android:text="SPEED"
+        android:textSize="16dp"
+        android:layout_toRightOf="@id/joystickView"
+        android:layout_below="@+id/stopBtn"
+        android:gravity="center"
+        />
+    <SeekBar
+        android:id="@+id/speedSeekBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="9"
+        android:progress="4"
+        android:layout_toRightOf="@id/speedTextView"
+        android:layout_below="@+id/stopBtn" />
+
+    <TextView
+        android:id="@+id/volumTextView"
+        android:layout_width="60dp"
+        android:layout_height="32dp"
+        android:text="VOLUM"
+        android:textSize="16dp"
+        android:layout_toRightOf="@id/joystickView"
+        android:layout_below="@+id/speedSeekBar"
+        android:gravity="center"
+        />
+
+    <SeekBar
+        android:id="@+id/volumSeekBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="9"
+        android:progress="4"
+        android:layout_toRightOf="@id/volumTextView"
+        android:layout_below="@+id/speedSeekBar" />
 
     <LinearLayout
         android:id="@+id/speed"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/rightBtn"
+        android:layout_toRightOf="@id/joystickView"
+        android:layout_below="@+id/volumSeekBar"
         android:orientation="horizontal">
         <Button
             android:id="@+id/fastBtn"
@@ -88,6 +145,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/speed"
+        android:layout_toRightOf="@id/joystickView"
         android:orientation="horizontal">
         <Button
             android:id="@+id/wiFiBtn"
@@ -105,11 +163,21 @@
             android:text="Bluetooth"/>
     </LinearLayout>
 
+    <TextView
+        android:id="@+id/oderTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/joystickView"
+        android:layout_toLeftOf="@id/initBtn"
+        android:textSize="20dp"
+        android:text="Waiting for the command..." />
+
     <ScrollView
         android:id="@+id/data"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/scan"
+        android:layout_below="@id/oderTextView"
+        android:layout_toLeftOf="@id/initBtn"
         android:orientation="horizontal" >
 
         <TextView
@@ -119,4 +187,5 @@
             android:textSize="10dp"
             android:text="Scaning..." />
     </ScrollView>
+
 </RelativeLayout>

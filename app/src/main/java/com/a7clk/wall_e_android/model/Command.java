@@ -4,7 +4,7 @@ package com.a7clk.wall_e_android.model;
  * Created by Gotze on 12/1/2016.
  */
 
-public class Order {
+public class Command {
     //init the car
     public static final String CAR_INIT = "INIT";
     public static final String FORWARD = "F";

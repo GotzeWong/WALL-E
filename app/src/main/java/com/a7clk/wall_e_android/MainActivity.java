@@ -23,14 +23,14 @@ import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
+import com.a7clk.wall_e_android.PDR.StepDetector;
+import com.a7clk.wall_e_android.PDR.StepListener;
+import com.a7clk.wall_e_android.model.Command;
 import com.a7clk.wall_e_android.model.Config;
-import com.a7clk.wall_e_android.model.Order;
 import com.a7clk.wall_e_android.ui.JoystickView;
 
 import org.json.JSONObject;
-import org.w3c.dom.Text;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -48,13 +48,12 @@ import butterknife.OnClick;
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
+    private static final String TAG = "MainActivity";
     private Thread thread;                //執行緒
     private Socket clientSocket;        //客戶端的socket
 
     private BufferedReader br;            //取得網路輸入串流
     private String tmp;                    //做為接收時的緩存
-    private JSONObject json_write,json_read;
-    DataOutputStream dos = null;
     PrintWriter out = null;
 
     @Bind(R.id.initBtn)
@@ -89,10 +88,14 @@ public class MainActivity extends AppCompatActivity
 
     private SensorManager mSensorManager;
     private Sensor mStepSensor;
+    private Sensor mAccSensor;
+    private Sensor mStepCountSensor;
+
+    private static int mSteps = 0;
 
     private static boolean onPressed = false;
-    private static String currentOrder = Order.STOP;
-    private static String lastOrder = Order.STOP;
+    private static String currentCommand = Command.STOP;
+    private static String lastCommand = Command.STOP;
 
     @OnClick(R.id.initBtn) void init() {
         // TODO call server...
@@ -102,77 +105,77 @@ public class MainActivity extends AppCompatActivity
 
     @OnClick(R.id.stopBtn) void stop() {
         // TODO call server...
-        doOrder(Order.STOP);
+        doCommand(Command.STOP);
     }
 
     @OnClick(R.id.forwardBtn) void forward() {
         // TODO call server...
-        doOrder(Order.FORWARD_SHORT_TIME);
+        doCommand(Command.FORWARD_SHORT_TIME);
     }
 
     @OnClick(R.id.backwardBtn) void back() {
         // TODO call server...
-        doOrder(Order.BACKWARD_SHORT_TIME);
+        doCommand(Command.BACKWARD_SHORT_TIME);
     }
 
     @OnClick(R.id.leftBtn) void left() {
         // TODO call server...
-        doOrder(Order.LEFT_SHORT_TIME);
+        doCommand(Command.LEFT_SHORT_TIME);
     }
 
     @OnClick(R.id.rightBtn) void right() {
         // TODO call server...
-        doOrder(Order.RIGHT_SHORT_TIME);
+        doCommand(Command.RIGHT_SHORT_TIME);
     }
 
     @OnClick(R.id.fastBtn) void fast() {
         // TODO call server...
-        doOrder(Order.ADD_SPEED);
+        doCommand(Command.ADD_SPEED);
     }
 
     @OnClick(R.id.slowBtn) void slow() {
         // TODO call server...
-        doOrder(Order.SUB_SPEED);
+        doCommand(Command.SUB_SPEED);
     }
 
     public void setSpeed(long speed) {
         // TODO call server...
-        doOrder(Order.SPEED+speed);
+        doCommand(Command.SPEED+speed);
     }
 
     public void setVolum(long volum) {
         // TODO call server...
-        doOrder(Order.VOLUM+volum);
+        doCommand(Command.VOLUM+volum);
     }
 
     @OnClick(R.id.wiFiBtn) void wifi() {
         // TODO call server...
 
-        doOrder(Order.GET_WIFI_INFO);
+        doCommand(Command.GET_WIFI_INFO);
     }
 
     @OnClick(R.id.bleBtn) void ble() {
         // TODO call server...
 
-        doOrder(Order.GET_BLUETOOTH);
+        doCommand(Command.GET_BLUETOOTH);
     }
 
-    public void doOrder(String order){
-        Log.i("the order to car:",order);
+    public void doCommand(String command){
+        Log.i("the command to car:",command);
         if(null != out && clientSocket.isConnected()) {
-            out.print(order);
+            out.print(command);
             out.flush();
         }
-        oderTextView.setText(order);
+        oderTextView.setText(command);
     }
 
-    public void doOrder(){
-        Log.i("the order to car:",currentOrder);
-        if(null != out && clientSocket.isConnected() && !lastOrder.equals(currentOrder)) {
-            out.print(currentOrder);
+    public void doCommand(){
+        Log.i("the command to car:",currentCommand);
+        if(null != out && clientSocket.isConnected() && !lastCommand.equals(currentCommand)) {
+            out.print(currentCommand);
             out.flush();
-            lastOrder = currentOrder;
-            oderTextView.setText(currentOrder+"...");
+            lastCommand = currentCommand;
+            oderTextView.setText(currentCommand+"...");
         }
     }
 
@@ -208,6 +211,26 @@ public class MainActivity extends AppCompatActivity
 
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         mStepSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
+        mAccSensor= mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mStepCountSensor= mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+
+        StepDetector stepDetector = new StepDetector();
+        stepDetector.addStepListener(new StepListener() {
+            @Override
+            public void onStep() {
+                Log.i(TAG,
+                    "onStep. Total step count: " + ++mSteps);
+                    doCommand(Command.FORWARD_SHORT_TIME);
+            }
+
+            @Override
+            public void passValue() {
+                Log.i(TAG,
+                        "passValue: " + ++mSteps);
+            }
+        });
+        mSensorManager.registerListener(stepDetector, mAccSensor,
+                SensorManager.SENSOR_DELAY_NORMAL);
 
         speedSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             private long _progress = 0;
@@ -251,13 +274,13 @@ public class MainActivity extends AppCompatActivity
                 if(event.getAction() == MotionEvent.ACTION_DOWN) {
                     //当手指按下的时候
                     onPressed = true;
-                    doOrder();
+                    doCommand();
                 }
                 if(event.getAction() == MotionEvent.ACTION_UP) {
                     //当手指离开的时候
                     onPressed = false;
-                    currentOrder = Order.STOP;
-                    doOrder();
+                    currentCommand = Command.STOP;
+                    doCommand();
                 }
                 return false;
             }
@@ -273,44 +296,44 @@ public class MainActivity extends AppCompatActivity
                 //powerTextView.setText(" " + String.valueOf(power) + "%");A
                 Log.i("the ANGLE:",angle+"");
 
-                //doOrder(Order.ANGLE+angle);
+                //doCommand(Command.ANGLE+angle);
                 switch (direction) {
                     case JoystickView.FRONT:
                         if(onPressed)
-                            currentOrder = Order.FORWARD;
+                            currentCommand = Command.FORWARD;
                         else
-                            doOrder(Order.FORWARD_SHORT_TIME);
+                            doCommand(Command.FORWARD_SHORT_TIME);
                         break;
                     case JoystickView.FRONT_RIGHT:
                         break;
                     case JoystickView.RIGHT:
                         if(onPressed)
-                            currentOrder = Order.RIGHT;
+                            currentCommand = Command.RIGHT;
                         else
-                            doOrder(Order.RIGHT_SHORT_TIME);
+                            doCommand(Command.RIGHT_SHORT_TIME);
                         break;
                     case JoystickView.RIGHT_BOTTOM:
                         break;
                     case JoystickView.BOTTOM:
                         if(onPressed)
-                            currentOrder = Order.BACKWARD;
+                            currentCommand = Command.BACKWARD;
                         else
-                            doOrder(Order.BACKWARD_SHORT_TIME);
+                            doCommand(Command.BACKWARD_SHORT_TIME);
                         break;
                     case JoystickView.BOTTOM_LEFT:
                         break;
                     case JoystickView.LEFT:
                         if(onPressed)
-                            currentOrder = Order.LEFT;
+                            currentCommand = Command.LEFT;
                         else
-                            doOrder(Order.LEFT_SHORT_TIME);
+                            doCommand(Command.LEFT_SHORT_TIME);
                         break;
                     case JoystickView.LEFT_FRONT:
                         break;
                     default:
                         break;
                 }
-                doOrder();
+                doCommand();
 
             }
         }, JoystickView.DEFAULT_LOOP_INTERVAL);
@@ -386,7 +409,7 @@ public class MainActivity extends AppCompatActivity
                 out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(
                         clientSocket.getOutputStream())), true);
 
-                out.print(Order.CAR_INIT);
+                out.print(Command.CAR_INIT);
                 out.flush();
 
                 while (clientSocket.isConnected()) {
@@ -439,32 +462,85 @@ public class MainActivity extends AppCompatActivity
 
         @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
+            Log.i("SensorEventListener","Accuracy Change: " + accuracy);
         }
 
         @Override
         public void onSensorChanged(SensorEvent event) {
             if (event.values[0] == 1.0f) {
-                doOrder(Order.FORWARD);
-            }else
-                doOrder(Order.STOP);
+                doCommand(Command.FORWARD);
+                Log.i("SensorEventListener","Sensor Change FORWARD");
+            }else{
+                doCommand(Command.STOP);
+                Log.i("SensorEventListener","Sensor Change STOP");
+            }
+        }
+    };
+
+    /*
+     * SensorEventListener接口的实现，需要实现两个方法
+     * 方法1 onSensorChanged 当数据变化的时候被触发调用
+     * 方法2 onAccuracyChanged 当获得数据的精度发生变化的时候被调用，比如突然无法获得数据时
+     * */
+    final SensorEventListener myAccelerometerListener = new SensorEventListener(){
+
+        //复写onSensorChanged方法
+        public void onSensorChanged(SensorEvent sensorEvent){
+            if(sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
+                Log.i(TAG,"onSensorChanged");
+
+                //图解中已经解释三个值的含义
+                float X_lateral = sensorEvent.values[0];
+                float Y_longitudinal = sensorEvent.values[1];
+                float Z_vertical = sensorEvent.values[2];
+                Log.i(TAG,"\n heading "+X_lateral);
+                Log.i(TAG,"\n pitch "+Y_longitudinal);
+                Log.i(TAG,"\n roll "+Z_vertical);
+            }
+        }
+        //复写onAccuracyChanged方法
+        public void onAccuracyChanged(Sensor sensor , int accuracy){
+            Log.i(TAG, "onAccuracyChanged");
+        }
+    };
+
+    final SensorEventListener myStepCounterListener = new SensorEventListener(){
+
+        //复写onSensorChanged方法
+        public void onSensorChanged(SensorEvent sensorEvent){
+            if(sensorEvent.sensor.getType() == Sensor.TYPE_STEP_COUNTER){
+                mSteps += sensorEvent.values.length;
+
+                Log.i(TAG,
+                        "New step detected by STEP_DETECTOR sensor. Total step count: " + mSteps);
+            }
+        }
+        //复写onAccuracyChanged方法
+        public void onAccuracyChanged(Sensor sensor , int accuracy){
+            Log.i(TAG, "onAccuracyChanged");
         }
     };
 
     protected void onResume() {
-        super.onResume();
         mSensorManager.registerListener(mSensorEventListener, mStepSensor,
                 SensorManager.SENSOR_DELAY_NORMAL);
+//        mSensorManager.registerListener(myAccelerometerListener, mAccSensor,
+//                SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(myStepCounterListener, mStepCountSensor,
+                SensorManager.SENSOR_DELAY_NORMAL);
+        super.onResume();
     }
 
     protected void onPause() {
         super.onPause();
-        mSensorManager.unregisterListener(mSensorEventListener);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        mSensorManager.unregisterListener(mSensorEventListener);
+        mSensorManager.unregisterListener(myAccelerometerListener);
+        Log.i("SensorEventListener","unregisterListener");
 
         closeSocket();
     }
