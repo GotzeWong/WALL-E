@@ -59,6 +59,8 @@ public class LocationActivity extends AppCompatActivity implements BeaconConsume
     HashMap<String, Integer> ibeaconMap = new HashMap<>();//待发送的ibeacon
     final Handler handler = new Handler();
     Runnable runnable;
+    float wifiY=0;
+    float wifiX=0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -95,8 +97,8 @@ public class LocationActivity extends AppCompatActivity implements BeaconConsume
 
                                 @Override
                                 public void onError(Call call, Response response, Exception e) {
-//                                        super.onError(call, response, e);
-                                    Log.i(TAG, "get location failed");
+                                    Toast.makeText(getApplicationContext(),"网络错误",Toast.LENGTH_SHORT).show();
+                                    super.onError(call, response, e);
                                 }
                             });
                 }
@@ -112,25 +114,31 @@ public class LocationActivity extends AppCompatActivity implements BeaconConsume
 
                                 @Override
                                 public void onError(Call call, Response response, Exception e) {
-//                                        super.onError(call, response, e);
-                                    Log.i(TAG, "get location failed");
+                                    Toast.makeText(getApplicationContext(),"网络错误",Toast.LENGTH_SHORT).show();
+                                    super.onError(call, response, e);
                                 }
                             });
                     ibeaconMap.clear();
                 }
-                handler.postDelayed(this, 10000);
+                handler.postDelayed(this, 5000);
             }
         };
     }
 
     private void postSuccess(String json, String type){
+        Location location = new Gson().fromJson(json, Location.class);
         if(type.equals(IBEACON)){
             Toast.makeText(getApplicationContext(),"ibeacon" + json,Toast.LENGTH_SHORT).show();
-            Location location = new Gson().fromJson(json, Location.class);
-            setLocation((int) location.x, (int) location.y);
+            if(location.x==-1&&location.y==-1){
+                setLocation((int)wifiX,(int)wifiY);
+            }
+            else{
+                setLocation((int) location.x, (int) location.y);
+            }
         }
         else{
-            Toast.makeText(getApplicationContext(),"wifi:" + json,Toast.LENGTH_SHORT).show();
+            wifiX=location.x;
+            wifiY=location.y;
         }
     }
 
@@ -160,6 +168,10 @@ public class LocationActivity extends AppCompatActivity implements BeaconConsume
     }
 
     private void setLocation(int x, int y) {
+        //按比例调整 4000*6000 => 200*300
+        x/=20;
+        y/=20;
+
         AbsoluteLayout.LayoutParams params = (AbsoluteLayout.LayoutParams) myLocation.getLayoutParams();
         params.x = (x + 50 - 12)* 2;//不知为啥是2倍的关系
         params.y = (y + 50 - 12)* 2;
